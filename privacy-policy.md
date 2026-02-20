@@ -1,11 +1,11 @@
-Privacy Policy for PinPoint
+Privacy Policy for PinSieve
 Last Updated: 2026-02-20T18:00:00Z
 
 1. Introduction
-Welcome to PinPoint. We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how our Chrome Extension and associated services handle information when you interact with Pinterest boards to generate gift recommendations.
+Welcome to PinSieve. We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how our Chrome Extension and associated services handle information when you interact with Pinterest boards to generate gift recommendations.
 
 2. Information We Collect
-To provide our core service, PinPoint accesses the following information:
+To provide our core service, PinSieve accesses the following information:
 
 Pinterest Data: Public board names, Pin images, and associated metadata (tags, descriptions) that you choose to analyze through the extension.
 
@@ -37,7 +37,7 @@ Affiliate Networks: We may display links to retailers. If you click these, those
 We only store the metadata necessary to maintain your gift ideas. You may request the deletion of your analyzed data at any time by uninstalling the extension or contacting us at mtmlr101@gmail.com.
 
 6. Compliance
-PinPoint is not endorsed by or affiliated with Pinterest or Amazon. We comply with the Pinterest Developer Terms and the Amazon Associates Program Operating Agreement.
+PinSieve is not endorsed by or affiliated with Pinterest or Amazon. We comply with the Pinterest Developer Terms and the Amazon Associates Program Operating Agreement.
 
 7. Contact Us
 If you have any questions about this Privacy Policy, please contact:
