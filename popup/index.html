@@ -1,0 +1,2067 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PinSieve</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root,
+      [data-theme="dark"] {
+        --header: #1a1714;
+        --bg: #0f0d0b;
+        --shadow: #c9c7c733;
+        --surface: #1a1714;
+        --surface2: #231f1b;
+        --surface3: #2c2722;
+        --border: #2e2925;
+        --border2: #3d3730;
+        --gold: #c9a84c;
+        --gold-light: #e8c96d;
+        --coral: #e85d4a;
+        --text: #f0ebe4;
+        --text-muted: #8a7f74;
+        --text-dim: #5a5249;
+        --success: #6bba6b;
+        --info: #2196f3;
+        --radius: 10px;
+      }
+      [data-theme="light"] {
+        --header: #f0ebe4;
+        --bg: #fcfaf7;
+        --shadow: #0a0a0a22;
+        --surface: #ffffff;
+        --surface2: #f3f0ec;
+        --surface3: #e8e4de;
+        --border: #e2ddd6;
+        --border2: #d6cfc5;
+        --gold: #eac359;
+        --gold-light: #c9a84c;
+        --coral: #d14d3b;
+        --text: #1a1714;
+        --text-muted: #665f58;
+        --text-dim: #8c837a;
+        --success: #3e8e3e;
+        --info: #2196f3;
+      }
+      body {
+        transition:
+          background-color 0.3s ease,
+          color 0.3s ease;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        width: 420px;
+        height: 600px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "DM Sans", sans-serif;
+        font-size: 13px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── Header ── */
+      .header {
+        background: linear-gradient(
+          135deg,
+          var(--header) 0%,
+          var(--surface2) 100%
+        );
+        border-bottom: 1px solid var(--border);
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-shrink: 0;
+      }
+      .header-logo {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        flex-shrink: 0;
+      }
+      .header-title {
+        font-family: "Playfair Display", serif;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .header-sub {
+        font-size: 9px;
+        color: var(--text-muted);
+        margin-top: 1px;
+      }
+      .header-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 3px;
+      }
+      .icon-btn {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px 6px;
+        font-size: 12px;
+        transition: all 0.2s;
+        line-height: 1;
+      }
+      .icon-btn:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .icon-btn.active {
+        border-color: var(--gold);
+        color: var(--gold);
+        background: rgba(201, 168, 76, 0.1);
+      }
+      .theme-btn {
+        background: none;
+        border: none;
+        border-radius: 6px;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px 6px;
+        font-size: 12px;
+        transition: all 0.2s;
+        line-height: 1;
+      }
+      .theme-btn:hover {
+        background-color: var(--shadow);
+      }
+      .theme-icon {
+        display: inline-block;
+        font-size: 13px;
+        line-height: 1;
+      }
+
+      /* ── Panel System ── */
+      .panel {
+        display: none;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+      }
+      .panel.active {
+        display: flex;
+      }
+      /* Add margin to panels only when rate limit toast is visible */
+      .toast.visible ~ .panel {
+        margin-top: 36px;
+      }
+      .panel-scroll {
+        overflow-y: auto;
+        flex: 1;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+      }
+      .panel-header {
+        padding: 11px 14px 9px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .panel-title {
+        font-family: "Playfair Display", serif;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .panel-sub {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      /* ── Stats Bar ── */
+      .stats-bar {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 9px 14px;
+        display: flex;
+        gap: 0;
+        flex-direction: row;
+        justify-content: space-evenly;
+        flex-shrink: 0;
+      }
+      .stat {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: center;
+      }
+      .stat-val {
+        font-family: "Playfair Display", serif;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--gold);
+        line-height: 1;
+      }
+      .stat-label {
+        font-size: 9px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+
+      /* ── Scan Banner ── */
+      .scan-banner {
+        background: var(--surface);
+        border-top: none;
+        border-left: none;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 9px 14px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-shrink: 0;
+      }
+      .scan-banner.active-pinterest {
+        border-bottom-color: var(--coral);
+        background: rgba(232, 93, 74, 0.06);
+      }
+      .scan-icon {
+        font-size: 17px;
+        flex-shrink: 0;
+      }
+      .scan-info {
+        flex: 1;
+      }
+      .scan-title {
+        font-weight: 500;
+        font-size: 12px;
+      }
+      .scan-desc {
+        color: var(--text-muted);
+        font-size: 10px;
+        margin-top: 2px;
+      }
+      .scan-btn {
+        background: var(--coral);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.2s;
+        font-family: "DM Sans", sans-serif;
+      }
+      .scan-btn:hover {
+        background: #f0705e;
+      }
+      .scan-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* ── Section ── */
+      .section {
+        padding: 0 14px 10px;
+      }
+      .section-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        margin-bottom: 7px;
+        padding-top: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      /* ── Graph Tags ── */
+      .graph-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .graph-tag {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 3px 9px;
+        font-size: 10px;
+        color: var(--text-muted);
+        cursor: default;
+      }
+      .graph-tag.high {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .graph-tag.med {
+        border-color: #6b5f4f;
+        color: #a08060;
+      }
+      .graph-tag.selectable {
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .graph-tag.selectable:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .graph-tag.selected-tag {
+        border-color: var(--gold);
+        color: var(--gold);
+        background: rgba(201, 168, 76, 0.15);
+      }
+
+      /* ── Filters ── */
+      .filters {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 7px;
+      }
+      .filter-group label {
+        display: block;
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+      }
+      .filter-group select,
+      .filter-group input {
+        width: 100%;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        padding: 5px 7px;
+        font-size: 11px;
+        font-family: "DM Sans", sans-serif;
+        cursor: pointer;
+        transition: border-color 0.2s;
+      }
+      .filter-group select:focus,
+      .filter-group input:focus {
+        outline: none;
+        border-color: var(--gold);
+      }
+
+      /* ── Board chips ── */
+      .board-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .board-chip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 3px 9px 3px 7px;
+        cursor: pointer;
+        font-size: 10px;
+        color: var(--text-muted);
+        transition: all 0.15s;
+      }
+      .board-chip-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--border2);
+        transition: background 0.2s;
+      }
+      .board-chip.selected {
+        border-color: var(--gold);
+        color: var(--text);
+      }
+      .board-chip.selected .board-chip-dot {
+        background: var(--gold);
+      }
+
+      /* ── Generate Button ── */
+      .generate-btn {
+        width: 100%;
+        background: linear-gradient(135deg, var(--gold) 0%, #b8943a 100%);
+        color: #0f0d0b;
+        border: none;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 10px;
+        font-family: "DM Sans", sans-serif;
+        transition: all 0.2s;
+      }
+      .generate-btn:hover {
+        background: linear-gradient(
+          135deg,
+          var(--gold-light) 0%,
+          var(--gold) 100%
+        );
+      }
+      .generate-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* ── Gift Cards ── */
+      .gifts-list {
+        padding: 0 14px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .gift-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 11px;
+        transition: border-color 0.2s;
+      }
+      .gift-card:hover {
+        border-color: var(--border2);
+      }
+      .gift-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 4px;
+        gap: 8px;
+      }
+      .gift-name {
+        font-weight: 600;
+        font-size: 12px;
+        line-height: 1.3;
+      }
+      .gift-price {
+        font-size: 10px;
+        color: var(--gold);
+        white-space: nowrap;
+      }
+      .gift-tag {
+        font-size: 9px;
+        color: var(--text-muted);
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .gift-match {
+        font-size: 10px;
+        color: var(--gold);
+        font-style: italic;
+        margin-bottom: 4px;
+      }
+      .gift-desc {
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        margin-bottom: 7px;
+      }
+      .gift-links {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .shop-link {
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 5px;
+        text-decoration: none;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        transition: all 0.15s;
+      }
+      .shop-link:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .gift-save-btn {
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 5px;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        background: none;
+        font-family: "DM Sans", sans-serif;
+        transition: all 0.15s;
+      }
+      .gift-save-btn:hover {
+        border-color: var(--success);
+        color: var(--success);
+      }
+      .gift-save-btn.saved {
+        border-color: var(--success);
+        color: var(--success);
+      }
+
+      /* ── Board Cards (Boards panel) ── */
+      .board-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin: 0 14px 8px;
+      }
+      .board-card.disabled {
+        opacity: 0.6;
+      }
+      .board-card-header {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 10px 11px;
+        cursor: pointer;
+      }
+      .board-toggle {
+        width: 28px;
+        height: 16px;
+        border-radius: 8px;
+        background: var(--border);
+        border: none;
+        cursor: pointer;
+        position: relative;
+        flex-shrink: 0;
+        transition: background 0.2s;
+      }
+      .board-toggle::after {
+        content: "";
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: white;
+        top: 3px;
+        left: 3px;
+        transition: left 0.2s;
+      }
+      .board-toggle.on {
+        background: var(--gold);
+      }
+      .board-toggle.on::after {
+        left: 15px;
+      }
+      .board-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .board-custom-name {
+        font-weight: 500;
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .board-orig-name {
+        font-size: 10px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .board-meta {
+        font-size: 10px;
+        color: var(--text-dim);
+        margin-top: 2px;
+      }
+      .board-expand-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 11px;
+        padding: 2px;
+      }
+      .board-card-body {
+        display: none;
+        padding: 0 11px 11px;
+        border-top: 1px solid var(--border);
+      }
+      .board-card-body.open {
+        display: block;
+      }
+      .rename-row {
+        display: flex;
+        gap: 6px;
+        margin: 9px 0;
+      }
+      .rename-input {
+        flex: 1;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        padding: 5px 8px;
+        font-size: 11px;
+        font-family: "DM Sans", sans-serif;
+      }
+      .rename-input:focus {
+        outline: none;
+        border-color: var(--gold);
+      }
+      .rename-btn {
+        background: var(--gold);
+        color: #0f0d0b;
+        border: none;
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+      }
+      .board-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .board-tag {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 2px 8px;
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .board-del-btn {
+        margin-top: 9px;
+        background: none;
+        border: 1px solid rgba(232, 93, 74, 0.3);
+        color: var(--coral);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 10px;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+      }
+      .board-del-btn:hover {
+        background: rgba(232, 93, 74, 0.1);
+      }
+
+      /* ── Graph Explorer sticky top ── */
+      .graph-sticky-top {
+        flex-shrink: 0;
+        padding: 10px 14px 0;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 10px;
+      }
+      .graph-sticky-top .selected-tags-bar {
+        margin-bottom: 8px;
+      }
+      .graph-sticky-top .combine-btn {
+        margin-top: 0;
+      }
+
+      /* ── Spacing: first card in scrollable panels ── */
+      #boardsList,
+      #profilesList {
+        padding-top: 10px;
+      }
+      #savedGiftsList {
+        padding-top: 8px;
+      }
+
+      /* ── Graph Explorer section (inside scroll) ── */
+      .graph-explorer-section {
+        padding: 12px 14px 0;
+      }
+      .graph-field-header {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+        margin-top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .graph-field-icon {
+        font-size: 12px;
+      }
+      .graph-tags-editable {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .graph-tag-editable {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 3px 9px;
+        font-size: 10px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .graph-tag-editable:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .graph-tag-editable.selected-tag {
+        border-color: var(--gold);
+        color: var(--gold);
+        background: rgba(201, 168, 76, 0.12);
+      }
+      .tag-remove-x {
+        font-size: 9px;
+        color: var(--text-dim);
+        cursor: pointer;
+        margin-left: 2px;
+      }
+      .tag-remove-x:hover {
+        color: var(--coral);
+      }
+      .add-tag-row {
+        display: flex;
+        gap: 6px;
+        margin-top: 9px;
+      }
+      .add-tag-input {
+        flex: 1;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        padding: 5px 8px;
+        font-size: 11px;
+        font-family: "DM Sans", sans-serif;
+      }
+      .add-tag-input:focus {
+        outline: none;
+        border-color: var(--gold);
+      }
+      .add-tag-btn {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+        transition: all 0.15s;
+      }
+      .add-tag-btn:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .selected-tags-bar {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 9px 11px;
+      }
+      .selected-tags-bar-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+      }
+      .selected-tags-bar-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        min-height: 24px;
+      }
+      .selected-tag-chip {
+        background: rgba(201, 168, 76, 0.15);
+        border: 1px solid var(--gold);
+        border-radius: 20px;
+        padding: 3px 9px;
+        font-size: 10px;
+        color: var(--gold);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .selected-tag-chip .x {
+        cursor: pointer;
+        opacity: 0.6;
+      }
+      .selected-tag-chip .x:hover {
+        opacity: 1;
+      }
+      .combine-btn {
+        width: 100%;
+        background: linear-gradient(135deg, #6b5f4f 0%, #4a3f33 100%);
+        color: var(--gold);
+        border: 1px solid var(--gold);
+        border-radius: 8px;
+        padding: 9px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+        transition: all 0.2s;
+        margin-top: 2px;
+      }
+      .combine-btn:hover {
+        background: linear-gradient(135deg, #7d7060 0%, #5c4f42 100%);
+      }
+      .combine-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .combination-result {
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        border-radius: var(--radius);
+        padding: 12px;
+        margin-top: 10px;
+      }
+      .combination-concept {
+        font-family: "Playfair Display", serif;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--gold);
+        margin-bottom: 4px;
+      }
+      .combination-desc {
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        margin-bottom: 8px;
+      }
+      .combination-moods {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-bottom: 8px;
+      }
+      .mood-chip {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 2px 8px;
+        font-size: 10px;
+        color: var(--text-muted);
+        font-style: italic;
+      }
+
+      /* ── Taste Profiles Panel ── */
+      .profile-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin: 0 14px 8px;
+        overflow: hidden;
+      }
+      .profile-card-header {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 10px 11px;
+        cursor: pointer;
+      }
+      .profile-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--gold);
+        flex-shrink: 0;
+      }
+      .profile-name {
+        font-weight: 500;
+        font-size: 12px;
+        flex: 1;
+      }
+      .profile-meta {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 1px;
+      }
+      .profile-card-body {
+        display: none;
+        padding: 0 11px 11px;
+        border-top: 1px solid var(--border);
+      }
+      .profile-card-body.open {
+        display: block;
+      }
+      .profile-section-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin: 8px 0 5px;
+      }
+      .profile-boards {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-bottom: 6px;
+      }
+      .profile-board-chip {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 2px 8px;
+        font-size: 10px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 3px;
+      }
+      .profile-board-chip.active {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .profile-tag-input-row {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .profile-tags-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .profile-tag {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 2px 8px;
+        font-size: 10px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 3px;
+      }
+      .profile-tag .ptx {
+        cursor: pointer;
+        font-size: 9px;
+        color: var(--text-dim);
+      }
+      .profile-tag .ptx:hover {
+        color: var(--coral);
+      }
+      .profile-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .profile-gen-btn {
+        flex: 1;
+        background: var(--gold);
+        color: #0f0d0b;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+      }
+      .profile-del-btn {
+        background: none;
+        border: 1px solid rgba(232, 93, 74, 0.3);
+        color: var(--coral);
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 10px;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+      }
+      .new-profile-row {
+        display: flex;
+        gap: 6px;
+        padding: 11px 14px;
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .new-profile-input {
+        flex: 1;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        padding: 6px 9px;
+        font-size: 11px;
+        font-family: "DM Sans", sans-serif;
+      }
+      .new-profile-input:focus {
+        outline: none;
+        border-color: var(--gold);
+      }
+      .new-profile-btn {
+        background: var(--gold);
+        color: #0f0d0b;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+      }
+
+      /* ── Saved Gifts Panel ── */
+      .saved-gifts-filter {
+        padding: 9px 14px 10px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .saved-gifts-filter label {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .profile-select {
+        flex: 1;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        padding: 5px 7px;
+        font-size: 11px;
+        font-family: "DM Sans", sans-serif;
+        cursor: pointer;
+      }
+      .export-gifts-btn {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        border-radius: 6px;
+        padding: 5px 9px;
+        font-size: 10px;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+        transition: all 0.15s;
+      }
+      .export-gifts-btn:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .saved-gift-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 11px;
+        margin: 0 14px 7px;
+      }
+      .saved-gift-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      .saved-gift-name {
+        font-weight: 600;
+        font-size: 12px;
+      }
+      .saved-gift-del {
+        background: none;
+        border: none;
+        color: var(--text-dim);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+      }
+      .saved-gift-del:hover {
+        color: var(--coral);
+      }
+      .saved-gift-profile {
+        font-size: 9px;
+        color: var(--gold);
+        margin-bottom: 3px;
+      }
+      .saved-gift-price {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+      }
+      .saved-gift-desc {
+        font-size: 10px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        margin-bottom: 6px;
+      }
+
+      /* ── Settings Panel ── */
+      .settings-section {
+        padding: 11px 14px;
+      }
+      .settings-title {
+        font-family: "Playfair Display", serif;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: var(--text);
+      }
+      .setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .setting-row:last-child {
+        border-bottom: none;
+      }
+      .setting-label {
+        font-size: 12px;
+      }
+      .setting-desc {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+      .setting-toggle {
+        width: 32px;
+        height: 18px;
+        border-radius: 9px;
+        background: var(--border);
+        border: none;
+        cursor: pointer;
+        position: relative;
+        flex-shrink: 0;
+        transition: background 0.2s;
+      }
+      .setting-toggle::after {
+        content: "";
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: white;
+        top: 3px;
+        left: 3px;
+        transition: left 0.2s;
+      }
+      .setting-toggle.on {
+        background: var(--gold);
+      }
+      .setting-toggle.on::after {
+        left: 17px;
+      }
+      .danger-zone {
+        margin-top: 4px;
+      }
+      .danger-btn {
+        background: none;
+        border: 1px solid rgba(232, 93, 74, 0.35);
+        color: var(--coral);
+        border-radius: 6px;
+        padding: 7px 14px;
+        font-size: 11px;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+        transition: all 0.2s;
+      }
+      .danger-btn:hover {
+        background: rgba(232, 93, 74, 0.1);
+      }
+      .export-btn-set {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        border-radius: 6px;
+        padding: 7px 14px;
+        font-size: 11px;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+        transition: all 0.2s;
+        margin-right: 6px;
+      }
+      .export-btn-set:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .credits-text {
+        font-size: 10px;
+        color: var(--text-dim);
+        line-height: 1.6;
+      }
+      .credits-text a {
+        color: var(--gold);
+        text-decoration: none;
+      }
+
+      /* ── Loading / Empty States ── */
+      .loading {
+        text-align: center;
+        padding: 28px 16px;
+      }
+      .spinner {
+        width: 24px;
+        height: 24px;
+        border: 2px solid var(--border);
+        border-top-color: var(--gold);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 12px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .loading-text {
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .loading-sub {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+      .empty-state {
+        text-align: center;
+        padding: 28px 16px;
+        color: var(--text-muted);
+      }
+      .empty-icon {
+        font-size: 32px;
+        margin-bottom: 9px;
+        opacity: 0.5;
+      }
+      .empty-title {
+        font-family: "Playfair Display", serif;
+        font-size: 14px;
+        color: var(--text);
+        margin-bottom: 5px;
+      }
+      .empty-desc {
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .step {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        margin: 6px 0;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .step-num {
+        width: 18px;
+        height: 18px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--gold);
+        flex-shrink: 0;
+      }
+      .empty-boards {
+        text-align: center;
+        padding: 28px 16px;
+        color: var(--text-muted);
+      }
+      .empty-boards-icon {
+        font-size: 30px;
+        margin-bottom: 9px;
+        opacity: 0.4;
+      }
+      .empty-boards-text {
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      /* ── Toast ── */
+      .toast {
+        position: fixed;
+        top: 48px;
+        left: 0;
+        right: 0;
+        width: 100%;
+        background: var(--surface2);
+        border-bottom: 1px solid var(--border);
+        padding: 8px 14px;
+        font-size: 11px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        white-space: nowrap;
+        z-index: 100;
+        text-align: center;
+      }
+      .toast.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .toast.success {
+        border-color: var(--success);
+        color: var(--success);
+      }
+      .toast.error {
+        border-color: var(--coral);
+        color: var(--coral);
+      }
+      .toast.warning {
+        border-color: var(--info);
+        color: var(--info);
+      }
+
+      /* ── Board chips locked during generation ── */
+      .board-chips.locked .board-chip {
+        pointer-events: none;
+        opacity: 0.7;
+      }
+      /* ── Analyzing badge on board card ── */
+      .analyzing-badge {
+        display: inline-block;
+        font-size: 9px;
+        color: var(--gold);
+        border: 1px solid var(--gold);
+        border-radius: 10px;
+        padding: 1px 6px;
+        margin-left: 5px;
+        vertical-align: middle;
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      /* ── Profile selector changes board display ── */
+      #boardSelectSection.profile-locked .board-chip {
+        pointer-events: none;
+      }
+
+      /* ── Trending / Stale tag indicators ── */
+      .graph-tag.trending {
+        border-color: var(--success);
+        color: var(--success);
+      }
+      .graph-tag.stale {
+        border-color: var(--text-dim);
+        color: var(--text-dim);
+        opacity: 0.6;
+      }
+      .tag-trend-dot {
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        margin-right: 3px;
+        vertical-align: middle;
+        flex-shrink: 0;
+      }
+      .tag-trend-dot.up {
+        background: var(--success);
+      }
+      .tag-trend-dot.down {
+        background: var(--text-dim);
+      }
+
+      /* ── Similarity matrix ── */
+      .similarity-section {
+        padding: 10px 11px 0;
+      }
+      .similarity-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-bottom: 7px;
+      }
+      .similarity-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .sim-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .sim-board-name {
+        font-size: 10px;
+        color: var(--text-muted);
+        width: 80px;
+        flex-shrink: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .sim-bar-wrap {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .sim-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: linear-gradient(90deg, var(--gold), var(--gold-light));
+        min-width: 2px;
+        transition: width 0.3s ease;
+      }
+      .sim-pct {
+        font-size: 9px;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .sim-pair {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .sim-pair:last-child {
+        border-bottom: none;
+      }
+      .sim-pair-names {
+        flex: 1;
+        font-size: 10px;
+        color: var(--text-muted);
+        min-width: 0;
+      }
+      .sim-pair-names strong {
+        color: var(--text);
+      }
+      .sim-badge {
+        font-size: 9px;
+        padding: 1px 6px;
+        border-radius: 10px;
+        white-space: nowrap;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+      }
+      .sim-badge.high {
+        border-color: var(--gold);
+        color: var(--gold);
+        background: rgba(201, 168, 76, 0.08);
+      }
+      .sim-badge.med {
+        border-color: #6b5f4f;
+        color: #a08060;
+      }
+      .sim-badge.low {
+        color: var(--text-dim);
+      }
+
+      /* ── Results mode: hide filters, show clear bar ── */
+      #filtersSection {
+        transition: none;
+      }
+      #filtersSection.hidden {
+        display: none;
+      }
+      .results-clear-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 14px 6px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        flex-shrink: 0;
+      }
+      .results-clear-bar-label {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .clear-results-btn {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        border-radius: 6px;
+        padding: 3px 9px;
+        font-size: 10px;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+        transition: all 0.15s;
+      }
+      .clear-results-btn:hover {
+        border-color: var(--coral);
+        color: var(--coral);
+      }
+
+      /* ── Results header ── */
+      .results-header {
+        padding: 4px 14px 5px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .results-header span {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .results-header button {
+        background: none;
+        border: none;
+        color: var(--gold);
+        font-size: 10px;
+        cursor: pointer;
+        font-family: "DM Sans", sans-serif;
+      }
+
+      /* ── Divider ── */
+      .divider {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 12px 0;
+      }
+
+      /* ── Board select count ── */
+      .board-select-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        margin-bottom: 5px;
+        padding-top: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <div class="header">
+      <img src="../icons/icon128.png" alt="Logo" class="header-logo" />
+      <div>
+        <div class="header-title">PinSieve</div>
+        <div class="header-sub">Pinterest taste → gift ideas</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn active" id="homeToggle" title="Generate">
+          🏠
+        </button>
+        <button class="icon-btn" id="boardsToggle" title="Boards">📌</button>
+        <button class="icon-btn" id="graphToggle" title="Graph Explorer">
+          🕸️
+        </button>
+        <button class="icon-btn" id="profilesToggle" title="Taste Profiles">
+          ✦
+        </button>
+        <button class="icon-btn" id="giftsToggle" title="Saved Gifts">
+          🎁
+        </button>
+        <button class="icon-btn" id="settingsToggle" title="Settings">
+          ⚙️
+        </button>
+        <button class="theme-btn" id="themeToggle" title="Toggle Theme">
+          <span class="theme-icon">🌙</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Rate Limit Toast (fixed below header) -->
+    <div class="toast" id="toast"></div>
+
+    <!-- ── HOME PANEL ── -->
+    <div class="panel active" id="homePanel">
+      <!-- Pinned above scroll: stats + scan banner -->
+      <div class="stats-bar">
+        <div class="stat">
+          <div class="stat-val" id="pinCountVal">0</div>
+          <div class="stat-label">Pins</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="boardCountVal">0</div>
+          <div class="stat-label">Boards</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="profileCountVal">0</div>
+          <div class="stat-label">Profiles</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="lastUpdateVal">—</div>
+          <div class="stat-label">Updated</div>
+        </div>
+      </div>
+      <div class="scan-banner" id="scanBanner">
+        <div class="scan-icon" id="scanIcon">📌</div>
+        <div class="scan-info">
+          <div class="scan-title" id="scanTitle">
+            Visit a Pinterest board to start
+          </div>
+          <div class="scan-desc" id="scanDesc">
+            Navigate to any Pinterest board or profile
+          </div>
+        </div>
+        <button class="scan-btn" id="scanBtn" style="display: none">
+          Scan Now
+        </button>
+      </div>
+      <!-- Clear bar: shown only when results are visible -->
+      <div class="results-clear-bar" id="resultsClearBar" style="display: none">
+        <span class="results-clear-bar-label" id="resultsClearLabel"
+          >Gift ideas</span
+        >
+        <button class="clear-results-btn" id="clearResultsBtn">
+          ✕ Clear results
+        </button>
+      </div>
+
+      <div class="panel-scroll" id="homeScroll">
+        <!-- Everything above results — hidden when ideas are showing -->
+        <div id="filtersSection">
+          <!-- Taste Profile Tags -->
+          <div id="graphSection" style="display: none">
+            <div class="section">
+              <div class="section-label">
+                Taste Profile
+                <span style="color: var(--text-dim); font-size: 9px"
+                  >from all boards</span
+                >
+              </div>
+              <div class="graph-tags" id="graphTags"></div>
+            </div>
+          </div>
+
+          <!-- Gift Filters -->
+          <div class="section" style="padding-top: 12px">
+            <div class="section-label">Generate Gift Ideas</div>
+            <div class="filters">
+              <div class="filter-group">
+                <label>Occasion</label>
+                <select id="occasion">
+                  <option value="">Any</option>
+                  <option value="birthday">Birthday</option>
+                  <option value="christmas">Christmas</option>
+                  <option value="anniversary">Anniversary</option>
+                  <option value="graduation">Graduation</option>
+                  <option value="housewarming">Housewarming</option>
+                  <option value="valentines">Valentine's</option>
+                  <option value="mothers day">Mother's Day</option>
+                  <option value="fathers day">Father's Day</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label>Budget</label>
+                <select id="budget">
+                  <option value="any">Any</option>
+                  <option value="under $25">Under $25</option>
+                  <option value="$25-$50">$25–$50</option>
+                  <option value="$50-$100">$50–$100</option>
+                  <option value="$100-$200">$100–$200</option>
+                  <option value="over $200">Over $200</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label>Age Group</label>
+                <select id="age">
+                  <option value="adult">Adult</option>
+                  <option value="teen (13-19)">Teen</option>
+                  <option value="young adult (20s)">20s</option>
+                  <option value="30s-40s">30s–40s</option>
+                  <option value="50+">50+</option>
+                  <option value="child">Child</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Taste profile selector -->
+            <div style="margin-top: 9px">
+              <div class="board-select-label">
+                <span>Taste profile</span>
+              </div>
+              <select
+                id="profileSelector"
+                style="
+                  width: 100%;
+                  background: var(--surface);
+                  border: 1px solid var(--border);
+                  border-radius: 6px;
+                  color: var(--text);
+                  padding: 5px 7px;
+                  font-size: 11px;
+                  font-family: &quot;DM Sans&quot;, sans-serif;
+                  cursor: pointer;
+                "
+              >
+                <option value="">All boards (master profile)</option>
+              </select>
+            </div>
+
+            <!-- Board selection chips -->
+            <div id="boardSelectSection" style="display: none">
+              <div class="board-select-label">
+                <span>Boards to use</span>
+                <span
+                  id="boardSelectCount"
+                  style="color: var(--gold); font-size: 9px"
+                ></span>
+              </div>
+              <div class="board-chips" id="boardChips"></div>
+            </div>
+
+            <button class="generate-btn" id="generateBtn">
+              ✨ Generate Gift Ideas
+            </button>
+          </div>
+        </div>
+        <!-- end filtersSection -->
+
+        <!-- Results -->
+        <div id="resultsArea"></div>
+      </div>
+    </div>
+
+    <!-- ── BOARDS PANEL ── -->
+    <div class="panel" id="boardsPanel">
+      <div class="panel-header">
+        <div class="panel-title">Saved Boards</div>
+        <div class="panel-sub" id="savedDataSub">
+          Manage your scanned Pinterest boards
+        </div>
+      </div>
+      <div class="panel-scroll" id="boardsList"></div>
+    </div>
+
+    <!-- ── GRAPH EXPLORER PANEL ── -->
+    <div class="panel" id="graphPanel">
+      <div class="panel-header">
+        <div class="panel-title">Graph Explorer</div>
+        <div class="panel-sub">Select tags to combine → discover new ideas</div>
+      </div>
+
+      <!-- Pinned: selected tags + combine button -->
+      <div class="graph-sticky-top">
+        <div class="selected-tags-bar">
+          <div class="selected-tags-bar-label">
+            Selected tags to combine
+            <span id="selectedTagsCount" style="color: var(--gold)">(0)</span>
+          </div>
+          <div class="selected-tags-bar-chips" id="selectedTagsBar">
+            <span
+              style="
+                font-size: 10px;
+                color: var(--text-dim);
+                font-style: italic;
+              "
+              >Click tags below to select…</span
+            >
+          </div>
+        </div>
+        <button class="combine-btn" id="combineBtn" disabled>
+          ⚡ Generate Ideas from Selected Tags
+        </button>
+      </div>
+
+      <!-- Scrollable: result + tag fields + add tag -->
+      <div class="panel-scroll">
+        <div class="graph-explorer-section">
+          <div id="combinationResult" style="display: none"></div>
+          <div id="graphExplorerFields">
+            <div
+              style="
+                text-align: center;
+                padding: 20px;
+                color: var(--text-muted);
+                font-size: 11px;
+              "
+            >
+              Scan a Pinterest board to build your graph.
+            </div>
+          </div>
+
+          <!-- Add custom tag -->
+          <div
+            style="
+              margin-top: 12px;
+              padding-top: 12px;
+              border-top: 1px solid var(--border);
+              padding-bottom: 14px;
+            "
+          >
+            <div class="graph-field-header">Add custom tag</div>
+            <div class="add-tag-row">
+              <select
+                id="addTagField"
+                style="
+                  background: var(--surface);
+                  border: 1px solid var(--border);
+                  border-radius: 6px;
+                  color: var(--text);
+                  padding: 5px 7px;
+                  font-size: 11px;
+                  font-family: &quot;DM Sans&quot;, sans-serif;
+                "
+              >
+                <option value="keywords">Keywords</option>
+                <option value="themes">Theme</option>
+                <option value="aesthetics">Aesthetic</option>
+                <option value="interests">Interest</option>
+                <option value="categories">Category</option>
+                <option value="lifestyle">Lifestyle</option>
+                <option value="colors">Color</option>
+              </select>
+              <input
+                class="add-tag-input"
+                id="addTagInput"
+                placeholder="new tag…"
+              />
+              <button class="add-tag-btn" id="addTagBtn">+ Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TASTE PROFILES PANEL ── -->
+    <div class="panel" id="profilesPanel">
+      <div class="panel-header">
+        <div class="panel-title">Taste Profiles</div>
+        <div class="panel-sub">Group boards + custom tags into profiles</div>
+      </div>
+      <div class="panel-scroll" id="profilesList"></div>
+      <div class="new-profile-row">
+        <input
+          class="new-profile-input"
+          id="newProfileName"
+          placeholder="New profile name…"
+        />
+        <button class="new-profile-btn" id="createProfileBtn">+ Create</button>
+      </div>
+    </div>
+
+    <!-- ── SAVED GIFTS PANEL ── -->
+    <div class="panel" id="giftsPanel">
+      <div class="panel-header">
+        <div class="panel-title">Saved Gift Ideas</div>
+        <div class="panel-sub" id="savedGiftsSub">Your curated collection</div>
+      </div>
+      <div class="saved-gifts-filter">
+        <label>Profile:</label>
+        <select class="profile-select" id="giftsProfileFilter">
+          <option value="">All profiles</option>
+        </select>
+        <button class="export-gifts-btn" id="exportGiftsBtn">⬇ Export</button>
+      </div>
+      <div class="panel-scroll" id="savedGiftsList"></div>
+    </div>
+
+    <!-- ── SETTINGS PANEL ── -->
+    <div class="panel" id="settingsPanel">
+      <div class="panel-scroll" style="padding: 0">
+        <div class="settings-section">
+          <div class="settings-title">Scanning</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Auto-scan on board visit</div>
+              <div class="setting-desc">
+                Automatically scan Pinterest boards when you open them
+              </div>
+            </div>
+            <button class="setting-toggle" id="autoScanToggle"></button>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Image visual analysis</div>
+              <div class="setting-desc">
+                Use image-RAG to extract richer taste signals from pin images
+              </div>
+            </div>
+            <button class="setting-toggle on" id="imageRagToggle"></button>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Max pins per scan</div>
+              <div class="setting-desc">
+                Limit pins processed per board visit
+              </div>
+            </div>
+            <select
+              id="maxPinsSetting"
+              style="
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                color: var(--text);
+                padding: 4px 6px;
+                font-size: 11px;
+                font-family: &quot;DM Sans&quot;, sans-serif;
+              "
+            >
+              <option value="20">20 pins</option>
+              <option value="30" selected>30 pins</option>
+              <option value="50">50 pins</option>
+              <option value="100">100 pins</option>
+            </select>
+          </div>
+        </div>
+
+        <hr class="divider" style="margin: 0" />
+
+        <div class="settings-section">
+          <div class="settings-title">Gift Generation</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Include Etsy links</div>
+              <div class="setting-desc">
+                Show Etsy search links for handmade items
+              </div>
+            </div>
+            <button class="setting-toggle on" id="etsyToggle"></button>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Ideas per generation</div>
+            </div>
+            <select
+              id="ideaCountSetting"
+              style="
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                color: var(--text);
+                padding: 4px 6px;
+                font-size: 11px;
+                font-family: &quot;DM Sans&quot;, sans-serif;
+              "
+            >
+              <option value="3">3 ideas</option>
+              <option value="5">5 ideas</option>
+              <option value="8" selected>8 ideas</option>
+              <option value="12">12 ideas</option>
+            </select>
+          </div>
+        </div>
+
+        <hr class="divider" style="margin: 0" />
+
+        <div class="settings-section">
+          <div class="settings-title">API Settings</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Use your own API key</div>
+              <div class="setting-desc">
+                Use your own Gemini, OpenAI, or Anthropic API key instead of the
+                default
+              </div>
+            </div>
+            <button class="setting-toggle" id="customAPIToggle"></button>
+          </div>
+          <div
+            style="padding: 0 12px; margin-top: 12px; display: none"
+            id="customAPIContainer"
+          >
+            <div style="margin-bottom: 12px">
+              <label
+                style="
+                  font-size: 11px;
+                  color: var(--text-muted);
+                  display: block;
+                  margin-bottom: 6px;
+                "
+                >API Provider</label
+              >
+              <select
+                id="customAPIProvider"
+                style="
+                  background: var(--surface);
+                  border: 1px solid var(--border);
+                  border-radius: 6px;
+                  color: var(--text);
+                  padding: 6px 8px;
+                  font-size: 11px;
+                  font-family: &quot;DM Sans&quot;, sans-serif;
+                  width: 100%;
+                "
+              >
+                <option value="openai">OpenAI (GPT-4o Mini)</option>
+                <option value="anthropic">Anthropic (Claude 3.5 Haiku)</option>
+                <option value="gemini">Google Gemini 2.0 Flash</option>
+              </select>
+            </div>
+            <div style="margin-bottom: 12px">
+              <label
+                style="
+                  font-size: 11px;
+                  color: var(--text-muted);
+                  display: block;
+                  margin-bottom: 6px;
+                "
+                >API Key</label
+              >
+              <input
+                id="customAPIKey"
+                type="password"
+                placeholder="Enter your API key"
+                style="
+                  background: var(--surface);
+                  border: 1px solid var(--border);
+                  border-radius: 6px;
+                  color: var(--text);
+                  padding: 6px 8px;
+                  font-size: 11px;
+                  width: 100%;
+                  box-sizing: border-box;
+                "
+              />
+            </div>
+            <div style="display: flex; gap: 6px">
+              <button
+                style="
+                  flex: 1;
+                  background: var(--accent);
+                  color: white;
+                  border: none;
+                  padding: 6px 12px;
+                  border-radius: 4px;
+                  font-size: 11px;
+                  cursor: pointer;
+                  font-family: &quot;DM Sans&quot;, sans-serif;
+                "
+                id="saveAPIKeyBtn"
+              >
+                Save Key
+              </button>
+              <button
+                style="
+                  flex: 1;
+                  background: var(--error, #ff3b30);
+                  color: white;
+                  border: none;
+                  padding: 6px 12px;
+                  border-radius: 4px;
+                  font-size: 11px;
+                  cursor: pointer;
+                  font-family: &quot;DM Sans&quot;, sans-serif;
+                "
+                id="clearAPIKeyBtn"
+              >
+                Clear Key
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <hr class="divider" style="margin: 0" />
+
+        <div class="settings-section">
+          <div class="settings-title">Data</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap">
+            <button class="export-btn-set" id="exportBtn">
+              ⬇ Export All Data
+            </button>
+            <button class="danger-btn" id="clearData">🗑 Clear All Data</button>
+          </div>
+          <div style="margin-top: 12px" class="credits-text">
+            PinSieve v1.0.1 · Data stored locally in your browser.<br />
+            AI powered via OpenAI · No data sent to third parties.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
