@@ -1,18 +1,12 @@
-// content/image_rag.js
 // Image-RAG: fetches visible pin images, sends to Claude vision for richer taste analysis,
 // then attempts to find matching products via search URLs.
 // Called from background/worker.js via PROCESS_PINS_VISUAL message.
 
+
 (function () {
   'use strict';
 
-  /**
-   * Given an array of pin objects (with imageUrl), fetch image data as base64,
-   * then batch-send to Claude vision via the local proxy.
-   * Returns enriched analysis with product search suggestions.
-   */
   async function analyzeImagesRAG(pins, getIdeas) {
-    // Only take pins with real image URLs (not data URIs)
     const imagePins = pins.filter(p => p.imageUrl && !p.imageUrl.startsWith('data:')).slice(0, 8);
     if (imagePins.length === 0) return null;
 
@@ -72,7 +66,7 @@
           "dominantColors": ["..."],
           "moodKeywords": ["..."]
         }
-  `});
+    `});
 
     try {
       const result = await getIdeas(

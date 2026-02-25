@@ -1,6 +1,6 @@
-// content/scraper.js — v4.1
 // Runs on Pinterest pages — extracts pin data and sends to background.
 // Safe to inject multiple times: guards with a flag on window.
+
 
 if (!window.__pinSieveInjected) {
   window.__pinSieveInjected = true;
@@ -15,7 +15,7 @@ if (!window.__pinSieveInjected) {
     if (msg.action === 'SCAN_PAGE') {
       if (isScanning) { sendResponse({ status: 'already_scanning' }); return; }
       scanPins().then(pins => { sendResponse({ status: 'ok', count: pins.length }); });
-      return true; // keep channel open for async response
+      return true;
     }
     if (msg.action === 'GET_BOARD_INFO') {
       sendResponse(getBoardInfo());
@@ -94,6 +94,5 @@ if (!window.__pinSieveInjected) {
     });
   }
 
-  // Tell the background the script is ready — it will auto-scan if enabled
   chrome.runtime.sendMessage({ action: 'CONTENT_SCRIPT_READY', url: window.location.href });
 }

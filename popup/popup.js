@@ -1,4 +1,7 @@
-// popup/popup.js — v4: graph explorer, taste profiles, saved gifts, image-RAG, no API key
+// Controls the 6-panel extension UI: Home, Boards, Graph Explorer,
+// Taste Profiles, Saved Gifts, and Settings.
+// Talks to background/worker.js exclusively via chrome.runtime.sendMessage.
+
 
 const $ = (id) => document.getElementById(id);
 
@@ -9,7 +12,7 @@ let selectedBoardIds = null;
 let graphSelectedTags = new Set();
 let savedGiftIds = new Set();
 let isGenerating = false;
-let resultsMode = false; // true when ideas are showing, filters hidden
+let resultsMode = false;
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -78,11 +81,11 @@ async function init() {
   setupNavigation();
   setupSettingsToggles();
   await checkCurrentTab();
-  // Load boards and profiles first so refreshStats can use them
+
   await loadBoards();
   await loadProfiles();
   populateProfileSelectors();
-  // Now update stats with correct counts
+
   const stats = await refreshStats();
 
   if (stats?.pinCount > 0 && !stats?.hasGraph) {
@@ -105,7 +108,7 @@ async function init() {
     $("profileCountVal").textContent = 0;
     populateProfileSelectors();
     renderBoardChips(null);
-    // Clear graph tags on home page
+
     $("graphTags").innerHTML = "";
     $("graphSection").style.display = "none";
     showToast("All data cleared");
@@ -135,16 +138,12 @@ async function init() {
     }
   });
 
-  // Clear results button
   $("clearResultsBtn").addEventListener("click", clearResults);
 
-  // Restore persisted ideas if any
   await restorePersistedIdeas();
 
-  // Check if generation was in progress
   await restoreGenerationState();
 
-  // Check if API rate limit is still active
   await checkForExistingRateLimit();
 
   // Saved Gifts export
@@ -156,7 +155,7 @@ async function init() {
 
 function setupSettingsToggles() {
   const keys = ["autoScanToggle", "imageRagToggle", "etsyToggle"];
-  // Read from chrome.storage.local (falls back to localStorage for backward compat)
+
   chrome.storage.local.get(keys, (data) => {
     keys.forEach((id) => {
       const btn = $(id);
@@ -193,10 +192,11 @@ function setupSettingsToggles() {
           customAPIToggle.classList.add("on");
           customAPIContainer.style.display = "block";
         }
+
         if (data.customAPIProvider) {
           customAPIProvider.value = data.customAPIProvider;
         }
-        // Don't display the key for security, but show a placeholder if saved
+
         if (data.customAPIKey) {
           customAPIKey.placeholder = "✓ API key saved (masked)";
           customAPIKey.value = "";
@@ -280,7 +280,7 @@ async function triggerScan() {
     await ensureContentScript(currentTab.id);
 
     $("scanDesc").textContent = "Extracting pins…";
-    // Give the injected script a moment to register its listener
+
     await new Promise((r) => setTimeout(r, 300));
 
     await chrome.tabs.sendMessage(currentTab.id, { action: "SCAN_PAGE" });
@@ -312,16 +312,15 @@ async function triggerScan() {
 // Uses a ping → inject pattern to avoid double-injection errors.
 async function ensureContentScript(tabId) {
   try {
-    // Ping to see if script is already alive
     await new Promise((resolve, reject) => {
       chrome.tabs.sendMessage(tabId, { action: "PING" }, (resp) => {
         if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
         else resolve(resp);
       });
     });
-    // Ping succeeded — script already present
+
   } catch (_) {
-    // Script not present — inject it now
+
     await chrome.scripting.executeScript({
       target: { tabId },
       files: ["content/scraper.js"],
@@ -334,7 +333,7 @@ async function ensureContentScript(tabId) {
 async function refreshStats() {
   const resp = await sendMessage({ action: "GET_STATS" });
   if (!resp || resp.status !== "ok") return null;
-  // Use board-summed pin count (avoids duplicates in raw pins store)
+
   const boardPinSum = allBoards.reduce((s, b) => s + (b.pinCount || 0), 0);
   $("pinCountVal").textContent = boardPinSum || resp.pinCount || 0;
   $("boardCountVal").textContent = resp.boardCount || 0;
@@ -398,8 +397,8 @@ async function loadGraphTags(profileId) {
     }
   }
 
-  const TRENDING_MS = 7 * 24 * 60 * 60 * 1000; // < 7 days = trending
-  const STALE_MS = 30 * 24 * 60 * 60 * 1000; // > 30 days = stale
+  const TRENDING_MS = 7 * 24 * 60 * 60 * 1000;
+  const STALE_MS = 30 * 24 * 60 * 60 * 1000;
 
   const allTags = [];
   const addTags = (obj, n) => {
@@ -458,7 +457,7 @@ async function loadGraphTags(profileId) {
 async function loadBoards() {
   const resp = await sendMessage({ action: "GET_BOARDS" });
   allBoards = resp?.boards || [];
-  // Update pin count stat from boards (authoritative source)
+
   const boardPinSum = allBoards.reduce((s, b) => s + (b.pinCount || 0), 0);
   $("pinCountVal").textContent = boardPinSum;
   $("boardCountVal").textContent = allBoards.length;
@@ -476,7 +475,7 @@ function renderBoardChips(profileId, locked) {
 
   let displayBoards = allBoards;
   if (profileId) {
-    // Only show boards belonging to this profile, all auto-selected
+
     const profile = allProfiles.find((p) => p.id === profileId);
     const profileBoardIds = profile?.boardIds || [];
     displayBoards = allBoards.filter((b) => profileBoardIds.includes(b.id));
@@ -504,7 +503,7 @@ function renderBoardChips(profileId, locked) {
   chips.classList.toggle("locked", !!(locked || profileId));
 
   if (!profileId && !locked) {
-    // Only bind click events when not locked
+
     chips.querySelectorAll(".board-chip").forEach((chip) => {
       chip.addEventListener("click", () => {
         const id = chip.dataset.boardId;
@@ -572,7 +571,7 @@ function renderBoardsList() {
       const scanDate = board.scannedAt ? timeAgo(board.scannedAt) : "Unknown";
       const hasData = board.analyzedAt;
       const hasError = board.analysisError;
-      const isAnalyzing = board.isAnalyzing; // Temporary flag for UI feedback
+      const isAnalyzing = board.isAnalyzing;
       return `
       <div class="board-card ${isOn ? "" : "disabled"}" id="bc-${escapeAttr(board.id)}">
         <div class="board-card-header" data-expand-id="${escapeAttr(board.id)}">
@@ -617,7 +616,6 @@ function renderBoardsList() {
     })
     .join("");
 
-  // Add "Analyze All" button if there are boards needing analysis and none are currently analyzing
   const anyAnalyzing = allBoards.some((b) => b.isAnalyzing);
   if (boardsNeedingAnalysis.length > 0 && !anyAnalyzing) {
     container.innerHTML += `<div style="padding:15px;text-align:center;border-top:1px solid var(--border-color);margin-top:15px;">
@@ -744,7 +742,7 @@ function updateSelectedTagsBar() {
   bar.querySelectorAll(".x").forEach((el) => {
     el.addEventListener("click", () => {
       graphSelectedTags.delete(el.dataset.deselect);
-      // Also deselect visually
+
       document
         .querySelectorAll(
           `.graph-tag-editable[data-tag="${el.dataset.deselect}"]`,
@@ -932,7 +930,7 @@ async function loadProfiles() {
 }
 
 function populateProfileSelectors() {
-  // Home panel profile selector
+
   const sel = $("profileSelector");
   const giftsFilter = $("giftsProfileFilter");
   const options = allProfiles
@@ -1044,7 +1042,7 @@ async function createProfile() {
   if (resp?.status === "ok") {
     $("newProfileName").value = "";
     allProfiles.push(resp.profile);
-    // Update counter immediately from local array
+
     $("profileCountVal").textContent = allProfiles.length;
     populateProfileSelectors();
     renderProfilesPanel();
@@ -1178,13 +1176,11 @@ async function generateGifts() {
   };
   chrome.storage.local.set({ generatingGifts: generationState });
 
-  // Lock UI during generation
   isGenerating = true;
   $("generateBtn").disabled = true;
   $("profileSelector").disabled = true;
   renderBoardChips(tasteProfileId, true);
 
-  // Show loading inside results area, hide filters
   enterResultsMode(0, profileLabel);
   showLoading("Curating personalized gifts…", "Analyzing your taste profile…");
 
@@ -1198,10 +1194,9 @@ async function generateGifts() {
     tasteProfileId,
   })
     .then((resp) => {
-      // Only process if we're still on this popup (hasn't closed since request started)
+
       if (!isGenerating) return;
 
-      // Unlock UI
       isGenerating = false;
       $("generateBtn").disabled = false;
       $("profileSelector").disabled = false;
@@ -1228,7 +1223,7 @@ async function generateGifts() {
       // Handle rate limit specifically
       if (err.rateLimited && err.resetTime) {
         showRateLimitToast(err.resetTime);
-        // Store rate limit info for recovery on popup reopen
+
         chrome.storage.local.set({
           rateLimitedAt: Date.now(),
           rateLimitResetTime: err.resetTime,
@@ -1283,7 +1278,6 @@ async function exportData() {
   const json = JSON.stringify(resp.data, null, 2);
   downloadFile("pinsieve-export.json", json, "application/json");
 
-  // Obsidian vault zip
   const vault = resp.data.obsidianVault || {};
   let obsidianMd = "";
   for (const [path, content] of Object.entries(vault)) {
@@ -1310,12 +1304,14 @@ function handleDelegatedClicks(e) {
     }
     return;
   }
+
   // Board toggle (enable/disable)
   const toggleId = e.target.dataset.toggleId;
   if (toggleId) {
     toggleBoard(toggleId);
     return;
   }
+
   // Board rename
   const renameId = e.target.dataset.renameId;
   if (renameId) {
@@ -1323,6 +1319,7 @@ function handleDelegatedClicks(e) {
     if (input) renameBoard(renameId, input.value.trim());
     return;
   }
+
   // Board delete
   const deleteId = e.target.dataset.deleteId;
   if (deleteId) {
@@ -1333,12 +1330,12 @@ function handleDelegatedClicks(e) {
   // Board retry analysis
   const retryId = e.target.dataset.retryId;
   if (retryId) {
-    // Immediately clear the error and show analyzing state
+
     const board = allBoards.find((b) => b.id === retryId);
     if (board) {
       delete board.analysisError;
       delete board.analysisErrorAt;
-      board.isAnalyzing = true; // Show analyzing state
+      board.isAnalyzing = true;
       renderBoardsList();
     }
     sendMessage({ action: "RETRY_BOARD_ANALYSIS", boardId: retryId })
@@ -1346,12 +1343,12 @@ function handleDelegatedClicks(e) {
         if (resp?.status === "ok") {
           showToast("Analysis complete!", "success");
           loadBoards().then(() => {
-            // Clear error from local copy after successful analysis
+
             const b = allBoards.find((board) => board.id === retryId);
             if (b) delete b.analysisError;
             if (activePanel === "boards") renderBoardsList();
           });
-          loadGraphTags(); // Refresh graph tags on home panel
+          loadGraphTags();
         } else {
           showToast(
             "Retry failed: " + (resp?.error || "Unknown error"),
@@ -1383,10 +1380,10 @@ function handleDelegatedClicks(e) {
   if (e.target.id === "analyzeAllBtn") {
     e.target.disabled = true;
     e.target.textContent = "⏳ Analyzing all boards…";
-    // Mark all non-analyzed boards as analyzing and clear errors
+
     allBoards.forEach((b) => {
       if (!b.analyzedAt) {
-        delete b.analysisError; // Clear any previous errors
+        delete b.analysisError;
         b.isAnalyzing = true;
       }
     });
@@ -1396,13 +1393,13 @@ function handleDelegatedClicks(e) {
         if (resp?.status === "ok") {
           showToast("All boards analyzed!", "success");
           loadBoards().then(() => {
-            // Clear errors from local copies after successful analysis
+
             allBoards.forEach((b) => {
               if (b.analyzedAt) delete b.analysisError;
             });
             if (activePanel === "boards") renderBoardsList();
           });
-          loadGraphTags(); // Refresh graph tags on home panel
+          loadGraphTags();
         } else {
           showToast(
             "Analysis failed: " + (resp?.error || "Unknown error"),
@@ -1439,8 +1436,8 @@ function handleDelegatedClicks(e) {
   if (analyzeId) {
     const board = allBoards.find((b) => b.id === analyzeId);
     if (board) {
-      delete board.analysisError; // Clear any previous error
-      board.isAnalyzing = true; // Show analyzing state
+      delete board.analysisError;
+      board.isAnalyzing = true;
       renderBoardsList();
     }
     sendMessage({ action: "ANALYZE_BOARD", boardId: analyzeId })
@@ -1448,12 +1445,12 @@ function handleDelegatedClicks(e) {
         if (resp?.status === "ok") {
           showToast("Board analyzed!", "success");
           loadBoards().then(() => {
-            // Clear error from local copy after successful analysis
+
             const b = allBoards.find((board) => board.id === analyzeId);
             if (b) delete b.analysisError;
             if (activePanel === "boards") renderBoardsList();
           });
-          loadGraphTags(); // Refresh graph tags on home panel
+          loadGraphTags();
         } else {
           showToast(
             "Analysis failed: " + (resp?.error || "Unknown error"),
@@ -1496,7 +1493,7 @@ function handleDelegatedClicks(e) {
   const expandProfile = e.target.closest("[data-expand-profile]")?.dataset
     .expandProfile;
   if (expandProfile) {
-    // Don't expand if clicking on action buttons
+
     if (
       e.target.closest("[data-profile-gen]") ||
       e.target.closest("[data-profile-del]") ||
@@ -1577,7 +1574,7 @@ function handleDelegatedClicks(e) {
     showPanel("home");
     const sel = $("profileSelector");
     sel.value = profileGen;
-    // Trigger change to update board chips and tags
+
     sel.dispatchEvent(new Event("change"));
     generateGifts();
     return;
@@ -1685,7 +1682,7 @@ function showLoading(text, sub) {
 }
 
 function showEmptyState(stats) {
-  // Empty state always exits results mode and shows filters
+
   resultsMode = false;
   $("filtersSection").classList.remove("hidden");
   $("resultsClearBar").style.display = "none";
@@ -1712,7 +1709,7 @@ function showEmptyState(stats) {
 }
 
 function showError(msg) {
-  // Keep results mode active but show error in results area
+
   $("resultsArea").innerHTML = `
     <div class="empty-state">
       <div class="empty-icon">⚠️</div>
@@ -1734,11 +1731,11 @@ function clearResults() {
   $("filtersSection").classList.remove("hidden");
   $("resultsClearBar").style.display = "none";
   $("resultsArea").innerHTML = "";
-  // Clear persistence
+
   try {
     chrome.storage.local.remove("persistedIdeas");
   } catch (e) {}
-  // Scroll back to top
+
   const scroll = $("homeScroll");
   if (scroll) scroll.scrollTop = 0;
 }
@@ -1751,7 +1748,7 @@ async function restorePersistedIdeas() {
     if (!data?.persistedIdeas) return;
     const { ideas, tasteProfileId, profileLabel } = data.persistedIdeas;
     if (!ideas?.length) return;
-    renderGifts(ideas, tasteProfileId, profileLabel, false); // false = don't re-persist
+    renderGifts(ideas, tasteProfileId, profileLabel, false);
   } catch (e) {
     /* storage not available or no data */
   }
@@ -1767,7 +1764,7 @@ async function restoreGenerationState() {
 
       const state = data.generatingGifts;
       const elapsed = Date.now() - state.startedAt;
-      // If generation started more than 5 minutes ago, assume it failed and clear
+
       if (elapsed > 5 * 60 * 1000) {
         chrome.storage.local.remove("generatingGifts");
         resolve();
@@ -1789,7 +1786,7 @@ async function restoreGenerationState() {
       const pollInterval = setInterval(() => {
         chrome.storage.local.get("generatingGifts", (data) => {
           if (!data.generatingGifts) {
-            // Generation completed, check for results
+
             clearInterval(pollInterval);
             const resultKey = `giftResults_${state.tasteProfileId || "master"}`;
             chrome.storage.local.get(resultKey, (resultData) => {
@@ -1805,7 +1802,7 @@ async function restoreGenerationState() {
             });
           }
         });
-      }, 1000); // Poll every second
+      }, 1000);
 
       resolve();
     });
@@ -1813,7 +1810,7 @@ async function restoreGenerationState() {
 }
 
 function renderGifts(ideas, tasteProfileId, profileLabel, persist = true) {
-  // Persist ideas for reopening
+
   if (persist) {
     try {
       chrome.storage.local.set({
@@ -1861,7 +1858,6 @@ function renderGifts(ideas, tasteProfileId, profileLabel, persist = true) {
     </div>
     <div class="gifts-list">${cards}</div>`;
 
-  // Scroll to top of results (filtersSection hidden, so resultsArea is now at top of scroll)
   const scroll = $("homeScroll");
   if (scroll) scroll.scrollTop = 0;
 
@@ -1878,7 +1874,7 @@ function renderGifts(ideas, tasteProfileId, profileLabel, persist = true) {
           btn.classList.add("saved");
           btn.disabled = true;
           showToast("Gift saved!", "success");
-          // Update persisted copy to reflect saved state
+
           try {
             const data = await new Promise((res) =>
               chrome.storage.local.get("persistedIdeas", res),
@@ -1911,7 +1907,7 @@ function sendMessage(msg) {
 
 function showToast(msg, type) {
   const t = $("toast");
-  // Don't overwrite persistent rate limit toast
+
   if (t.classList.contains("warning") && rateLimitToastInterval) {
     return;
   }
@@ -1922,13 +1918,11 @@ function showToast(msg, type) {
   }, 3000);
 }
 
-// Persistent rate limit toast with countdown
 let rateLimitToastInterval = null;
 
 function showRateLimitToast(resetTime) {
   const t = $("toast");
 
-  // Clear existing timeout/interval
   if (rateLimitToastInterval) clearInterval(rateLimitToastInterval);
 
   const updateToast = () => {
@@ -1936,7 +1930,7 @@ function showRateLimitToast(resetTime) {
     const remaining = Math.max(0, resetTime - now);
 
     if (remaining <= 0) {
-      // Rate limit expired
+
       t.className = "toast";
       if (rateLimitToastInterval) clearInterval(rateLimitToastInterval);
       rateLimitToastInterval = null;
@@ -1944,7 +1938,6 @@ function showRateLimitToast(resetTime) {
       return;
     }
 
-    // Calculate minutes and seconds
     const mins = Math.floor(remaining / 60000);
     const secs = Math.floor((remaining % 60000) / 1000);
     const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
@@ -1953,7 +1946,6 @@ function showRateLimitToast(resetTime) {
     t.className = "toast visible warning";
   };
 
-  // Update immediately and then every second
   updateToast();
   rateLimitToastInterval = setInterval(updateToast, 1000);
 }
@@ -1967,10 +1959,8 @@ function checkForExistingRateLimit() {
         if (data.rateLimitResetTime) {
           const now = Date.now();
           if (now < data.rateLimitResetTime) {
-            // Rate limit still active, show countdown
             showRateLimitToast(data.rateLimitResetTime);
           } else {
-            // Rate limit expired, clean up storage
             chrome.storage.local.remove([
               "rateLimitedAt",
               "rateLimitResetTime",

@@ -1,4 +1,7 @@
-// background/worker.js — v4: taste profiles, saved gifts, graph explorer, image-RAG, no API key
+// Runs as a Chrome MV3 service worker — always-on background process 
+// with no DOM access, communicating with the popup and content 
+// scripts entirely via chrome.runtime.onMessage.
+
 
 const DB_NAME = 'PinSieveDB';
 const DB_VERSION = 4;
@@ -10,12 +13,10 @@ function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = e => {
       const db = e.target.result;
-      // Core stores
       if (!db.objectStoreNames.contains('pins')) db.createObjectStore('pins', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('graph')) db.createObjectStore('graph', { keyPath: 'key' });
       if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
       if (!db.objectStoreNames.contains('boards')) db.createObjectStore('boards', { keyPath: 'id' });
-      // NEW v4 stores
       if (!db.objectStoreNames.contains('tasteProfiles')) db.createObjectStore('tasteProfiles', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('savedGifts')) db.createObjectStore('savedGifts', { keyPath: 'id' });
     };
@@ -218,13 +219,13 @@ async function getIdeas(messages, systemPrompt, maxTokens = 1024) {
   });
   
   if (!response.ok) {
-    // Check for rate limit error
+
     if (response.status === 429) {
       const resetTime = response.headers.get('X-RateLimit-Reset');
       const error = new Error('Rate limit exceeded. Please try again in 1 hour.');
       error.rateLimited = true;
       error.resetTime = resetTime ? parseInt(resetTime) : Date.now() + 3600000;
-      // Store rate limit status
+
       chrome.storage.local.set({
         rateLimitedAt: Date.now(),
         rateLimitResetTime: error.resetTime
@@ -451,11 +452,10 @@ async function generateGiftIdeas(occasion, budget, recipientAge, boardIds, taste
   let graph;
 
   if (tasteProfileId) {
-    // Generate from a specific taste profile
     const profile = await dbGet('tasteProfiles', tasteProfileId);
     if (!profile) throw new Error('Taste profile not found');
     graph = { ...emptyGraphData() };
-    // Merge from profile's boards + manual tags
+
     for (const bid of (profile.boardIds || [])) {
       const board = await dbGet('boards', bid);
       if (!board?.graphData) continue;
@@ -465,7 +465,6 @@ async function generateGiftIdeas(occasion, budget, recipientAge, boardIds, taste
         }
       }
     }
-    // Manual tags override/boost
     for (const tag of (profile.manualTags || [])) {
       const k = tag.toLowerCase().trim();
       graph.keywords[k] = (graph.keywords[k] || 0) + 5;
@@ -514,22 +513,18 @@ async function generateGiftIdeas(occasion, budget, recipientAge, boardIds, taste
   try {
     const match = result.match(/\[[\s\S]*\]/);
     if (!match) {
-      // Try to find partial JSON and complete it
       const partialMatch = result.match(/\[\s*\{[\s\S]*/);
       if (partialMatch) {
         let partial = partialMatch[0];
-        // Count braces to see if we can close it
         let braceCount = 0;
-        let bracketCount = 1; // We have opening [
+        let bracketCount = 1;
         for (let i = 1; i < partial.length; i++) {
           if (partial[i] === '{') braceCount++;
           if (partial[i] === '}') braceCount--;
         }
-        // Close incomplete braces and array
         if (braceCount > 0) {
           partial += '}'.repeat(braceCount);
         }
-        // Ensure array is closed
         if (!partial.trim().endsWith(']')) {
           partial += ']';
         }
@@ -711,20 +706,16 @@ function buildObsidianVault(boards, savedGifts, tasteProfiles) {
 // ── Message Handler ───────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  // Auto-scan when content script signals it's ready on a board page
   if (msg.action === 'CONTENT_SCRIPT_READY') {
     const url = msg.url || '';
     const isBoardPage = isBoardUrl(url);
     if (isBoardPage) {
-      // Check setting (default off for safety)
       chrome.storage.local.get('autoScanToggle', data => {
         const enabled = data.autoScanToggle === 'on';
         if (enabled && sender.tab?.id) {
-          // Small delay to let the page settle
           setTimeout(() => {
             chrome.tabs.sendMessage(sender.tab.id, { action: 'SCAN_PAGE' }, () => {
               if (chrome.runtime.lastError) {
-                // Ignore — tab may have navigated away
               }
             });
           }, 2000);
@@ -743,7 +734,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const { pins, board } = msg;
           const boardId = makeBoardId(board?.boardNameWithUser || 'unknown', board?.url || '');
           await addPinsToBoard(boardId, board?.boardNameWithUser || 'Unknown Board', board?.url || '', pins);
-          // Just discover the board — don't analyze yet
           sendResponse({ status: 'ok', pinCount: pins.length, boardId });
           break;
         }
@@ -763,7 +753,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           }
           try {
             await analyzeAndUpdateBoard(boardId, pins);
-            // Clear any previous analysis error
             const boardRecord = await dbGet('boards', boardId);
             if (boardRecord?.analysisError) {
               delete boardRecord.analysisError;
@@ -884,11 +873,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const { occasion, budget, recipientAge, boardIds, tasteProfileId } = msg;
           const ideas = await generateGiftIdeas(occasion, budget, recipientAge, boardIds, tasteProfileId);
           
-          // Store results for persistence (in case popup closes before response received)
           const resultKey = `giftResults_${tasteProfileId || 'master'}`;
           chrome.storage.local.set({ [resultKey]: ideas });
           
-          // Clear the generation in-progress flag
           chrome.storage.local.remove('generatingGifts');
           
           sendResponse({ status: 'ok', ideas });
@@ -1038,7 +1025,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             pinCount: pins.length,
             boardCount: boards.length,
             hasGraph: boards.some(b => b.analyzedAt),
-            hasApiKey: true, // proxy handles auth
+            hasApiKey: true,
             updatedAt: graph?.updatedAt
           });
           break;
@@ -1078,7 +1065,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
     } catch (err) {
       console.error('[PinSieve] Worker error:', err);
-      // Clear generation state if something went wrong
       chrome.storage.local.remove('generatingGifts');
       sendResponse({ status: 'error', error: err.message });
     }
@@ -1101,7 +1087,6 @@ function isBoardUrl(url) {
   if (!url || !url.includes('pinterest.com')) return false;
   if (url.includes('/pin/')) return false;
   const pathname = new URL(url).pathname.split('/').filter(Boolean);
-  // Board URLs: pinterest.com/username/boardname
   return pathname.length >= 2;
 }
 
@@ -1110,18 +1095,15 @@ function isBoardUrl(url) {
 // so the content_scripts declaration won't re-inject scraper.js.
 // We listen for tab URL changes and inject + trigger a scan ourselves.
 
-const recentAutoScans = new Map(); // tabId → last scanned URL, to avoid double-scanning
+const recentAutoScans = new Map();
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // Only act when the page finishes loading and has a Pinterest board URL
   if (changeInfo.status !== 'complete') return;
   const url = tab.url || '';
   if (!isBoardUrl(url)) return;
 
-  // Avoid scanning the same URL twice in quick succession
   if (recentAutoScans.get(tabId) === url) return;
   recentAutoScans.set(tabId, url);
-  // Clear the cache entry after 30s so revisiting the same board can re-scan
   setTimeout(() => {
     if (recentAutoScans.get(tabId) === url) recentAutoScans.delete(tabId);
   }, 30000);
@@ -1132,17 +1114,13 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (!enabled) return;
 
     try {
-      // Inject the content script (safe — window.__pinSieveInjected guards re-injection)
       await chrome.scripting.executeScript({
         target: { tabId },
         files: ['content/scraper.js']
       });
-      // Give the script a moment to set up its listener
       await new Promise(r => setTimeout(r, 400));
-      // Trigger the scan
       chrome.tabs.sendMessage(tabId, { action: 'SCAN_PAGE' }, () => {
         if (chrome.runtime.lastError) {
-          // Tab navigated away before we could message it — ignore
         }
       });
     } catch (e) {
