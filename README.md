@@ -9,7 +9,9 @@
 
 ## Demo
 
-
+<video src="https://github.com/user-attachments/assets/f680a465-8afb-4c89-a7a2-9dbc148b68f5" width="600" controls>
+    Your browser does not support the video tag.
+</video>
 
 ---
 
