@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "PinSieve",
-  "version": "1.0.1",
-  "description": "Analyzes Pinterest boards to generate personalized gift ideas with shopping links",
+  "name": "PinSieve: Turn Pins Into Perfect Gifts",
+  "version": "1.1.0",
+  "description": "A smarter way to shop for the people you love.",
   "permissions": [
     "storage",
     "activeTab",
