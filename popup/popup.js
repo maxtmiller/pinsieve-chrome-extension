@@ -78,6 +78,7 @@ function setupNavigation() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 async function init() {
+  $("appVersion").textContent = chrome.runtime.getManifest().version;
   setupNavigation();
   setupSettingsToggles();
   await checkCurrentTab();
