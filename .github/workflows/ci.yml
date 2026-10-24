@@ -6,6 +6,30 @@ on:
   pull_request:
 
 jobs:
+  version:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require version bump when extension files change
+        run: |
+          base="origin/${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD -- manifest.json background content popup icons)
+          if [ -z "$changed" ]; then
+            echo "No extension files changed"
+            exit 0
+          fi
+          old=$(git show "$base:manifest.json" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')
+          new=$(node -p 'require("./manifest.json").version')
+          if [ "$old" = "$new" ]; then
+            echo "Extension files changed but manifest version is still $old. Bump it."
+            exit 1
+          fi
+          echo "Version bumped: $old -> $new"
+
   check:
     runs-on: ubuntu-latest
     steps:
