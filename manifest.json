@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PinSieve: Turn Pins Into Perfect Gifts",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A smarter way to shop for the people you love.",
   "permissions": [
     "storage",

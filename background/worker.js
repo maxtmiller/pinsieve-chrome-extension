@@ -126,9 +126,9 @@ async function callCustomAPI(messages, systemPrompt, maxTokens, provider, apiKey
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'gpt-5.4-mini',
           messages: [{ role: 'system', content: systemPrompt }, ...messages],
-          max_tokens: maxTokens
+          max_completion_tokens: maxTokens
         })
       });
       if (!response.ok) {
@@ -148,10 +148,11 @@ async function callCustomAPI(messages, systemPrompt, maxTokens, provider, apiKey
         headers: {
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'claude-3-5-haiku-20241022',
+          model: 'claude-haiku-5-5',
           max_tokens: maxTokens,
           system: systemPrompt,
           messages: messages
@@ -703,6 +704,11 @@ function buildObsidianVault(boards, savedGifts, tasteProfiles) {
   return files;
 }
 
+function setBadge(text, color) {
+  chrome.action.setBadgeBackgroundColor({ color });
+  chrome.action.setBadgeText({ text });
+}
+
 // ── Message Handler ───────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -871,13 +877,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         case 'GENERATE_GIFTS': {
           const { occasion, budget, recipientAge, boardIds, tasteProfileId } = msg;
+          await chrome.storage.local.remove('giftError');
           const ideas = await generateGiftIdeas(occasion, budget, recipientAge, boardIds, tasteProfileId);
-          
-          const resultKey = `giftResults_${tasteProfileId || 'master'}`;
-          chrome.storage.local.set({ [resultKey]: ideas });
-          
-          chrome.storage.local.remove('generatingGifts');
-          
+
+          // The popup may have closed, so persist the result here for it to restore on reopen.
+          const { generatingGifts } = await chrome.storage.local.get('generatingGifts');
+          await chrome.storage.local.set({
+            persistedIdeas: { ideas, tasteProfileId, profileLabel: generatingGifts?.profileLabel || null },
+          });
+          await chrome.storage.local.remove('generatingGifts');
+          setBadge('✓', '#2e9e5b');
+
           sendResponse({ status: 'ok', ideas });
           break;
         }
@@ -1065,7 +1075,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
     } catch (err) {
       console.error('[PinSieve] Worker error:', err);
-      chrome.storage.local.remove('generatingGifts');
+      if (msg.action === 'GENERATE_GIFTS') {
+        await chrome.storage.local.set({ giftError: err.message });
+        setBadge('!', '#d33');
+      }
+      await chrome.storage.local.remove('generatingGifts');
       sendResponse({ status: 'error', error: err.message });
     }
   })();
