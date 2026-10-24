@@ -143,6 +143,7 @@ async function init() {
   await restorePersistedIdeas();
 
   await restoreGenerationState();
+  clearBadge();
 
   await checkForExistingRateLimit();
 
@@ -805,7 +806,7 @@ async function combineTags() {
           <div class="gift-desc">${escapeHtml(idea.description || "")}</div>
           <div class="gift-links">
             <a class="shop-link" href="${idea.amazonUrl}" target="_blank">🛒 Amazon</a>
-            <a class="shop-link" href="${idea.etsyUrl}" target="_blank">🧵 Etsy</a>
+            ${idea.etsyUrl ? `<a class="shop-link" href="${idea.etsyUrl}" target="_blank">🧵 Etsy</a>` : ""}
             <a class="shop-link" href="${idea.googleUrl}" target="_blank">🔍 Shop</a>
             <button class="gift-save-btn" data-save-gift='${JSON.stringify({ ...idea, name: idea.name, description: idea.description, price_range: idea.priceRange }).replace(/'/g, "&#39;")}'>☆ Save</button>
           </div>
@@ -1194,7 +1195,8 @@ async function generateGifts() {
     tasteProfileId,
   })
     .then((resp) => {
-
+      clearBadge();
+      chrome.storage.local.remove("giftError");
       if (!isGenerating) return;
 
       isGenerating = false;
@@ -1758,7 +1760,14 @@ async function restoreGenerationState() {
   return new Promise((resolve) => {
     chrome.storage.local.get("generatingGifts", (data) => {
       if (!data.generatingGifts) {
-        resolve();
+        // Generation may have failed while the popup was closed
+        chrome.storage.local.get("giftError", (errData) => {
+          if (errData.giftError) {
+            showError(errData.giftError);
+            chrome.storage.local.remove("giftError");
+          }
+          resolve();
+        });
         return;
       }
 
@@ -1788,16 +1797,20 @@ async function restoreGenerationState() {
           if (!data.generatingGifts) {
 
             clearInterval(pollInterval);
-            const resultKey = `giftResults_${state.tasteProfileId || "master"}`;
-            chrome.storage.local.get(resultKey, (resultData) => {
-              if (resultData[resultKey]) {
-                const ideas = resultData[resultKey];
-                isGenerating = false;
-                $("generateBtn").disabled = false;
-                $("profileSelector").disabled = false;
-                renderBoardChips(state.tasteProfileId, false);
-                renderGifts(ideas, state.tasteProfileId, state.profileLabel);
-                chrome.storage.local.remove(resultKey);
+            chrome.storage.local.get(["persistedIdeas", "giftError"], (res) => {
+              clearBadge();
+              isGenerating = false;
+              $("generateBtn").disabled = false;
+              $("profileSelector").disabled = false;
+              renderBoardChips(state.tasteProfileId, false);
+              if (res.giftError) {
+                showError(res.giftError);
+                chrome.storage.local.remove("giftError");
+              } else if (res.persistedIdeas?.ideas?.length) {
+                const p = res.persistedIdeas;
+                renderGifts(p.ideas, p.tasteProfileId, p.profileLabel, false);
+              } else {
+                clearResults();
               }
             });
           }
@@ -1888,6 +1901,10 @@ function renderGifts(ideas, tasteProfileId, profileLabel, persist = true) {
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+
+function clearBadge() {
+  chrome.action.setBadgeText({ text: "" });
+}
 
 function sendMessage(msg) {
   return new Promise((resolve) => {
