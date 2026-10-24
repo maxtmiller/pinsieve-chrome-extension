@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  version:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require version bump when extension files change
+        run: |
+          base="origin/${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD -- manifest.json background content popup icons)
+          if [ -z "$changed" ]; then
+            echo "No extension files changed"
+            exit 0
+          fi
+          old=$(git show "$base:manifest.json" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')
+          new=$(node -p 'require("./manifest.json").version')
+          if [ "$old" = "$new" ]; then
+            echo "Extension files changed but manifest version is still $old. Bump it."
+            exit 1
+          fi
+          echo "Version bumped: $old -> $new"
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Syntax check
+        run: |
+          node --input-type=module --check < background/worker.js
+          node --check popup/popup.js
+          node --check content/scraper.js
+          node --check content/image_rag.js
+
+      - name: Validate manifest
+        run: |
+          node -e '
+          const fs = require("fs");
+          const m = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
+          const files = [
+            m.background?.service_worker,
+            m.action?.default_popup,
+            ...Object.values(m.icons || {}),
+            ...(m.content_scripts || []).flatMap((c) => [...(c.js || []), ...(c.css || [])]),
+          ].filter(Boolean);
+          const missing = files.filter((f) => !fs.existsSync(f));
+          if (missing.length) {
+            console.error("Missing files referenced by manifest:", missing);
+            process.exit(1);
+          }
+          '
